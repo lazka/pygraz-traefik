@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import httpx
 
-app = FastAPI()
+app = FastAPI(docs_url="/")
 
 
 @app.get("/events")
