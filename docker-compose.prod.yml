@@ -1,0 +1,53 @@
+version: '3.4'
+
+services:
+
+  traefik:
+    restart: unless-stopped
+    image: traefik:v2.5
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/configs/"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.web-secure.address=:443"
+      - "--entryPoints.web-secure.enablehttp3=true"
+      - "--certificatesResolvers.le.acme.email=reiter.christoph@gmail.com"
+      - "--certificatesResolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesResolvers.le.acme.keyType=EC256"
+      - "--certificatesResolvers.le.acme.httpChallenge=true"
+      - "--certificatesResolvers.le.acme.httpChallenge.entryPoint=web"
+      - "--experimental.http3=true"
+    ports:
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
+    volumes:
+      - ./traefik/traefik-tls.yml:/configs/traefik-tls.yml:ro
+      - letsencrypt:/letsencrypt/
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  api:
+    restart: unless-stopped
+    build:
+      context: ./pygraz-server
+      target: production
+    environment:
+      WEB_CONCURRENCY: '4'
+      FORWARDED_ALLOW_IPS: '*'
+    labels:
+      - "traefik.enable=true"
+      # middlewares
+      - "traefik.http.middlewares.myapi-scheme-redir.redirectscheme.scheme=https"
+      # http
+      - "traefik.http.routers.myapi.rule=Host(`pygraz.duckdns.org`)"
+      - "traefik.http.routers.myapi.entrypoints=web"
+      - "traefik.http.routers.myapi.middlewares=myapi-scheme-redir"
+      # https
+      - "traefik.http.routers.myapi-secure.rule=Host(`pygraz.duckdns.org`)"
+      - "traefik.http.routers.myapi-secure.tls=true"
+      - "traefik.http.routers.myapi-secure.tls.certresolver=le"
+      - "traefik.http.routers.myapi-secure.entrypoints=web-secure"
+
+volumes:
+  letsencrypt:

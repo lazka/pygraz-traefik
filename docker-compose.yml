@@ -1,0 +1,31 @@
+version: '3.4'
+
+services:
+
+  traefik:
+    restart: unless-stopped
+    image: traefik:v2.5
+    command:
+      - "--api.insecure=true" # for debug interface on 8080
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  api:
+    restart: unless-stopped
+    build:
+      context: ./pygraz-server
+      target: development
+    volumes:
+      - ./pygraz-server/pygraz:/app/pygraz
+    environment:
+      FORWARDED_ALLOW_IPS: '*'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.myproject.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.myproject.entrypoints=web"
