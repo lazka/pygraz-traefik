@@ -8,21 +8,19 @@ RUN apt-get update && apt-get install -y \
 
 RUN python3 -m pip install "poetry==1.1.11"
 
-FROM base AS development
-
-ENV PYTHONDONTWRITEBYTECODE 1
 COPY . /app
 WORKDIR /app
+RUN poetry install --no-dev
+
+FROM base AS development
+
 RUN poetry install
+ENV PYTHONDONTWRITEBYTECODE 1
 
 ENTRYPOINT ["poetry", "run", "uvicorn", "--reload", "--host", "0.0.0.0", "--port", "80", "pygraz.main:app"]
 EXPOSE 80
 
 FROM base AS production
-
-COPY . /app
-WORKDIR /app
-RUN poetry install --no-dev
 
 ENTRYPOINT ["poetry", "run", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:80", "pygraz.main:app"]
 EXPOSE 80
