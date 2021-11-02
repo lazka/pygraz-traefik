@@ -2,11 +2,22 @@ version: '3.4'
 
 services:
 
+  docker-proxy:
+    restart: unless-stopped
+    image: tecnativa/docker-socket-proxy
+    environment:
+      - CONTAINERS=1  # this is enough for traefik, read-only by default..
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-sock
+
   traefik:
     restart: unless-stopped
     image: traefik:v2.5
     command:
       - "--providers.docker=true"
+      - "--providers.docker.endpoint=tcp://docker-proxy:2375"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.file.directory=/configs/"
       - "--entryPoints.web.address=:80"
@@ -25,7 +36,10 @@ services:
     volumes:
       - ./traefik/traefik-tls.yml:/configs/traefik-tls.yml:ro
       - letsencrypt:/letsencrypt/
-      - /var/run/docker.sock:/var/run/docker.sock
+      # - /var/run/docker.sock:/var/run/docker.sock # now handled via proxy
+    networks:
+      - default
+      - docker-sock
 
   api:
     restart: unless-stopped
@@ -51,3 +65,8 @@ services:
 
 volumes:
   letsencrypt:
+
+networks:
+  default:
+  docker-sock:
+    internal: true
